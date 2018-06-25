@@ -1,0 +1,6 @@
+exclude_list
+.git
+LICENSE
+pull
+push
+README.md

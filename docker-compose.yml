@@ -1,0 +1,60 @@
+version: '3.6'
+networks:
+  int:
+    name: internal
+    driver: bridge
+
+services:
+  bsc_proxy:
+    hostname: bsc_proxy
+    build:
+      context: bsc
+      dockerfile: Dockerfile
+    image: bsc_proxy:durty
+    networks:
+      - int
+    restart: unless-stopped
+    environment:
+     - BSCLOGIN=user:pass
+     - BSCREFRESH=120
+  bgtv_proxy:
+    hostname: bgtv_proxy
+    build:
+      context: bgtv
+      dockerfile: Dockerfile
+    image: bgtv_proxy:durty
+    networks:
+      - int
+    restart: unless-stopped
+    environment:
+     - KEY=0123456789abcdef
+  hts:
+    hostname: hts
+    build:
+      context: tvheadend
+      dockerfile: Dockerfile.epgbg
+    image: tvheadend:durty
+    networks:
+      - int
+    ports:
+      - '9981:9981'
+      - '9982:9982'
+    restart: unless-stopped
+    environment:
+     - TZ=Europe/Sofia
+    volumes:
+      - /home/hass/docker/tvheadend:/config
+      - /home/hass/recordings:/recordings
+  hass:
+    build:
+      context: homeassistant
+      dockerfile: Dockerfile.addapk
+    image: hass:durty
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /proc/meminfo:/free_mem:ro
+      - /proc/loadavg:/loadavg_cpu:ro
+      - /sys/class/thermal/thermal_zone0/temp:/temp_cpu:ro
+      - /home/hass/docker/hass:/config

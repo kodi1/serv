@@ -1,0 +1,7 @@
+FROM homeassistant/home-assistant:latest
+
+MAINTAINER kodi1 version: 0.1
+
+RUN apk --no-cache update && \
+      apk --no-cache upgrade && \
+      apk --no-cache add miniupnpc samba-client sshpass

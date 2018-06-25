@@ -1,0 +1,8 @@
+#!/bin/bash
+INI_FILE="/config/comskip/comskip.ini"
+if [ -f "/config/comskip_cfg" ]; then
+  INI_FILE="/config/comskip_cfg"
+fi
+
+# nice -n 10 comskip --threads=4 --ini=$INI_FILE "$@"
+nice -n 10 comskip --ini=$INI_FILE "$@"

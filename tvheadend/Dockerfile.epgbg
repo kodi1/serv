@@ -1,0 +1,5 @@
+FROM linuxserver/tvheadend:latest
+
+MAINTAINER kodi1 version: 0.1
+
+COPY . /usr/bin
