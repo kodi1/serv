@@ -1,0 +1,16 @@
+#!/bin/bash
+
+post_data()
+{
+cat <<EOF
+{
+  "time": "$(date +%Y-%d-%mT%H:%M:%S.000000%z)",
+  "name": "$sonarr_series_title",
+  "eventtype": "$sonarr_eventtype"
+}
+EOF
+}
+
+curl -X POST -H "Content-Type: application/json" -H 'Authorization: Bearer '$HA_TOKEN \
+--data "$(post_data)" \
+http://hbox:8123/api/events/update_video_db
