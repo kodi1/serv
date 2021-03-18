@@ -1,0 +1,64 @@
+#!/bin/bash
+
+fix () {
+  ionice -c 3 \
+  nice -n 19 \
+  ffmpeg -i  "$MFPATH"/"$NAME"."$EXT" -copyts -map 0 -c copy -f mpegts "$MFPATH"/"$NAME".tmp_"$EXT" && \
+  mv -f "$MFPATH"/"$NAME".tmp_"$EXT" "$MFPATH"/"$NAME"."$EXT"
+}
+
+skip () {
+  INI_FILE="/config/comskip/comskip.ini"
+  if [ ! -f $INI_FILE ]; then
+    INI_FILE="/usr/bin/comskip_cfg"
+  fi
+  # ionice -c 3 nice -n 19 comskip --threads=4 --ini=$INI_FILE "$MFPATH"/"$NAME"."$EXT"
+  ionice -c 3 nice -n 19 comskip --ini=$INI_FILE "$MFPATH"/"$NAME"."$EXT"
+  echo "$MFPATH"/"$NAME"."$EXT"
+  ffprobe -i "$MFPATH"/"$NAME"."$EXT"
+  cat "$MFPATH"/"$NAME".edl
+  notify $MQTT_HOST $MQTT_USER $MQTT_PASS "$MFPATH"/"$NAME"."$EXT"
+}
+
+usage () {
+  echo "$0 option file"
+  echo "options: fix skip clean fix_skip"
+  exit 1
+}
+
+clean () {
+  ls -1 "$MFPATH"/"$NAME".*
+  rm -rf "$MFPATH"/"$NAME".*
+}
+
+process () {
+  case "$1" in
+    "fix")
+      fix
+      ;;
+    "skip")
+      skip
+      ;;
+    "clean")
+      clean
+      ;;
+    "fix_skip")
+      fix
+      skip
+      ;;
+    *)
+      usage
+      ;;
+  esac
+}
+
+if [ "$#" != "2" ]; then
+  usage
+fi
+
+MFPATH=$(dirname "$2")
+s=$(basename "$2")
+NAME=${s%.*}
+EXT=${s##*.}
+
+process "$@"
