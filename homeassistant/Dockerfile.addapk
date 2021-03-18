@@ -1,0 +1,21 @@
+# docker build --build-arg version=dev -t delme .
+# docker run -it --rm -p 9999:8123 -e PUID=$(id -u) -e PGID=$(id -g) -v /home/hass/ha_tst/cfg:/config -v /etc/localtime:/etc/localtime:ro --name delme delme
+ARG version
+
+FROM homeassistant/home-assistant:${version}
+
+COPY ha_check /bin/ha_check
+ADD https://raw.githubusercontent.com/tribut/homeassistant-docker-venv/master/run /etc/services.d/home-assistant/run
+
+RUN chmod a+x /etc/services.d/home-assistant/run && \
+      sed -i -e 's:USER=.*$:USER="hass":g' /etc/services.d/home-assistant/run && \
+      sed -i -e 's:-D -H -u:-D -h /tmp -u:g' /etc/services.d/home-assistant/run && \
+      sed -i -e 's:^.*adduser.*$:&\nchmod +s /bin/busybox\naddgroup hass dialout:g' /etc/services.d/home-assistant/run && \
+      sed -i -e 's:apk add --quiet --no-progress:apk add --progress:g' /etc/services.d/home-assistant/run && \
+      printf 'Host *\n\tLogLevel ERROR\n\tUserKnownHostsFile /dev/null\n\tStrictHostKeyChecking no\n\tConnectTimeout 5\n' >> /etc/ssh/ssh_config && \
+      apk add  --progress --no-cache \
+      libcap && \
+      setcap 'cap_net_raw,cap_net_admin+eip' `which hcitool` && \
+      setcap 'cap_net_raw,cap_net_admin+eip' `which hciconfig` && \
+      sed -i -e 's|reset_s: int = 70|reset_s: int = 5|g' /usr/local/lib/python*/site-packages/zhaquirks/xiaomi/__init__.py && \
+      sed -i -e 's|^.*Occupancy cluster.*$|&\n    reset_s: int = 90|g' /usr/local/lib/python*/site-packages/zhaquirks/xiaomi/__init__.py
