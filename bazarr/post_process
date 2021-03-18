@@ -1,0 +1,29 @@
+#!/bin/bash
+
+path=$(dirname "${1}")
+name=$(sed -e 's|.*\/\(.*\)\..*\..*|\1|g' <<< ${1})
+ext=$(sed -e 's|.*\.\(.*\..*\)|\1|g' <<< ${1})
+
+echo 'path: ' ${path}
+echo 'name: ' ${name}
+echo 'ext:  ' ${ext}
+
+pushd "$path"
+
+tfile=$(mktemp XXXXXXXXX.srt)
+
+ionice -c 3 \
+  nice -n 19 \
+  subsync --loglevel INFO --logfile "${name}.subsync.log" --cli sync --sub "${1}" --out ${tfile} "${@:2}" --overwrite
+
+if [[ $? == 0 ]]; then
+  mv "${1}" "${name}.zzzz.${ext}"
+  mv ${tfile} "${1}"
+  echo 'ok'
+else
+  rm ${tfile}
+  echo 'error'
+fi
+
+popd
+
