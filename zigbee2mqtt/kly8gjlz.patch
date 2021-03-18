@@ -1,0 +1,21 @@
+diff --git a/tuya.ts b/tuya_new.ts
+index 8d2de49..19a0712 100644
+--- a/tuya.ts
++++ b/tuya_new.ts
+@@ -5618,6 +5618,7 @@ export const definitions: DefinitionWithExtend[] = [
+             "_TZE200_sur6q7ko" /* model: '3012732', vendor: 'LSC Smart Connect' */,
+             "_TZE200_hue3yfsn" /* model: 'TV02-Zigbee', vendor: 'Tuya' */,
+             "_TZE200_e9ba97vf" /* model: 'TV01-ZB', vendor: 'Moes' */,
++            "_TZE200_kly8gjlz",
+             "_TZE200_husqqvux" /* model: 'TSL-TRV-TV01ZG', vendor: 'Tesla Smart' */,
+             "_TZE200_lnbfnyxd" /* model: 'TSL-TRV-TV01ZG', vendor: 'Tesla Smart' */,
+             "_TZE200_fsow0qsk" /* model: 'TSL-TRV-TV05ZG', vendor: 'Tesla Smart' */,
+@@ -5638,7 +5639,7 @@ export const definitions: DefinitionWithExtend[] = [
+             {vendor: "Tesla Smart", model: "TSL-TRV-TV05ZG"},
+             {vendor: "Unknown/id3.pl", model: "GTZ08"},
+             tuya.whitelabel("Moes", "ZTRV-ZX-TV01-MS", "Thermostat radiator valve", ["_TZE200_7yoranx2"]),
+-            tuya.whitelabel("Moes", "TV01-ZB", "Thermostat radiator valve", ["_TZE200_e9ba97vf"]),
++            tuya.whitelabel("Moes", "TV01-ZB", "Thermostat radiator valve", ["_TZE200_e9ba97vf", "_TZE200_kly8gjlz"]),
+             tuya.whitelabel("AlecoAir", "HA-08_THERMO", "Thermostat radiator valve", ["_TZE200_wsbfwodu"]),
+             tuya.whitelabel("GIEX", "TV06", "Thermostat radiator valve", ["_TZE200_py4cm3he"]),
+         ],
