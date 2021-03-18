@@ -1,0 +1,64 @@
+#!/bin/bash
+
+#!/bin/bash
+dflag=
+vflag=
+cflag=
+qflag=
+if (( $# < 1 ))
+then
+  exec curl --max-time 10 --retry 3 --retry-delay 5 --retry-max-time 32 -s -L -o- http://epg.cloudns.org/dl.php | gunzip -c
+  exit 0
+fi
+
+for arg
+do
+    delim=""
+    case "$arg" in
+    #translate --gnu-long-options to -g (short options)
+       --description) args="${args}-d ";;
+       --version) args="${args}-v ";;
+       --capabilities) args="${args}-c ";;
+       --quiet) args="${args}-q ";;
+
+       #pass through anything else
+       *) [[ "${arg:0:1}" == "-" ]] || delim="\""
+           args="${args}${delim}${arg}${delim} ";;
+    esac
+done
+
+#Reset the positional parameters to the short options
+eval set -- $args
+
+while getopts "dvcq" option
+do
+    case $option in
+        d)  dflag=1;;
+        v)  vflag=1;;
+        c)  cflag=1;;
+        q)  qflag=1;;
+        \?) printf "unknown option: -%s\n" $OPTARG
+            printf "Usage: %s: [--description] [--version] [--capabilities] \n" $(basename $0)
+            exit 2
+            ;;
+    esac >&2
+done
+
+if [ "$dflag" ]
+then
+   printf "$0 is a grabber epg.kodibg.org\n"
+fi
+if [ "$vflag" ]
+then
+   printf "0.1\n"
+fi
+if [ "$cflag" ]
+then
+   printf "baseline\n"
+fi
+if [ "$qflag" ]
+then
+   printf ""
+fi
+
+exit 0

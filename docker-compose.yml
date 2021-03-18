@@ -1,0 +1,308 @@
+# docker compose pull mqtt smb transmission prowlarr && docker compose build --pull --force-rm --parallel && docker compose up -d --remove-orphans && docker system prune --volumes -af
+# systemctl enable systemd-networkd-wait-online.service
+# docker run --rm -it -p 5556:80 --name=TasmoAdmin-BETA raymondmm/tasmoadmin:beta
+# docker run -u $(id -u):$(id -g) -e PIP_CACHE_DIR=/tmp/pip -e PLATFORMIO_CORE_DIR=/tmp/platformio -e PLATFORMIO_GLOBALLIB_DIR=/tmp/platformio/lib --rm -it --net=host -v ~/homeassistant/cmds/esphome/:/config ghcr.io/esphome/esphome
+networks:
+  int:
+    name: internal
+    driver: bridge
+
+services:
+  # bsc:
+  #   hostname: bsc
+  #   build:
+  #     context: https://github.com/kodi1/serv.git#master:bsc
+  #     dockerfile: Dockerfile
+  #   image: bsc:durty
+  #   networks:
+  #     - int
+  #   restart: unless-stopped
+  #   environment:
+  #     - BSCLOGIN=${BSCKEY:?err}
+  #     - BSCREFRESH=90
+
+  # tivi:
+  #   hostname: tivi
+  #   build:
+  #     context: https://github.com/kodi1/serv.git#master:tivi
+  #     dockerfile: Dockerfile
+  #   image: tivi:durty
+  #   networks:
+  #     - int
+  #   restart: unless-stopped
+  #   environment:
+  #     - TIVIBG_MAC=${TIVIMAC:?err}
+
+  codeserver:
+    build:
+      context: https://github.com/kodi1/serv.git#master:codeserver
+      dockerfile: Dockerfile
+    image: codeserver:durty
+    networks:
+      - int
+    ports:
+      - 8443:8443
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+      - SUDO_PASSWORD=${CODE_SERV_SUDO_PASS:?err}
+      - HASS_SERVER=${SERV_HA:?err}
+      - HASS_TOKEN=${SERV_HA_TOKEN:?err}
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/codeserver:/config
+      - ${SERV_CFG_ROOT:?err}:/server
+
+  hts:
+    hostname: hts
+    # depends_on:
+    #   - bsc
+    #   - tivi
+    build:
+      context: https://github.com/kodi1/serv.git#master:tvheadend
+      dockerfile: Dockerfile
+      args:
+        version: ${HTS_VERSION:-latest}
+    image: tvheadend:durty
+    networks:
+      - int
+    devices:
+      - /dev/dri
+    ports:
+      - 9981:9981
+      - 9982:9982
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+      - MQTT_HOST=${SERV_MQTT_NAME:?err}
+      - MQTT_USER=${SERV_MQTT_USER:?err}
+      - MQTT_PASS=${SERV_MQTT_PASS:?err}
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/tvheadend:/config
+      - ${SERV_STORAGE_PATH:?err}/recordings:/recordings
+
+  mqtt:
+    hostname: mqtt
+    image: eclipse-mosquitto
+    networks:
+      - int
+    ports:
+      - 1883:1883
+    restart: unless-stopped
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ${SERV_CFG_ROOT:?err}/mosquitto/data:/mosquitto/data
+    user: ${SERV_PUID:?err}:${SERV_PGID:?err}
+
+  smb:
+    image: dperson/samba
+    networks:
+      - int
+    ports:
+      - '139:139'
+      - '445:445'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - 'smbclient -L "\\localhost" -U "%" -m SMB3'
+      interval: 10m
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    environment:
+      - WORKGROUP=WORKGROUP
+      - TZ=Europe/Sofia
+      - USERID=${SERV_PUID:?err}
+      - GROUPID=${SERV_PGID:?err}
+      - INCLUDE=/samba/cfg
+      - IMPORT=/samba/passwds #pdbedit --list --smbpasswd-style > /samba/passwds
+      - RECYCLE
+      - PERMISSIONS
+    volumes:
+      - ${SERV_STORAGE_PATH:?err}:/mount
+      - ${SERV_CFG_ROOT:?err}/samba:/samba
+    command:
+      - '-g server min protocol = NT1'
+      - '-g hosts allow = 192.168.1. 172.17.0. 192.168.100.'
+      - '-g netbios name = hbox'
+      - '-g server string = hbox Samba Server'
+      #- '-g socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536'
+      - '-g socket options = IPTOS_LOWDELAY SO_RCVBUF=131072 SO_SNDBUF=131072 TCP_NODELAY'
+      - '-g min receivefile size = 2048'
+      - '-g use sendfile = true'
+      - '-g aio read size = 2048'
+      - '-g aio write size = 2048'
+      - '-g write cache size = 1024000'
+      - '-g read raw = yes'
+      - '-g write raw = yes'
+      - '-g getwd cache = yes'
+      - '-g oplocks = yes'
+      - '-g max xmit = 32768'
+      - '-g dead time = 15'
+      - '-g large readwrite = yes'
+
+  zigbee2mqtt:
+    depends_on:
+      - mqtt
+    build:
+      context: https://github.com/kodi1/serv.git#master:zigbee2mqtt
+      dockerfile: Dockerfile
+      args:
+        version: ${ZIGBEE2MQTT_VERSION:-latest}
+    image: zigbee2mqtt:dirty
+    restart: unless-stopped
+    user: ${SERV_PUID:?err}:${SERV_PGID:?err}
+    group_add:
+      - dialout
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/zigbee2mqtt:/app/data
+      - /run/udev:/run/udev:ro
+    ports:
+      - 8080:8080
+    environment:
+      - TZ=Europe/Sofia
+    devices:
+      - /dev/serial/by-id/${ZIGBEE_DEVICE:?err}:/dev/zigbee
+
+  hass:
+    depends_on:
+      - zigbee2mqtt
+      - mqtt
+    build:
+      context: https://github.com/kodi1/serv.git#master:homeassistant
+      dockerfile: Dockerfile.addapk
+      args:
+        version: ${HASS_VERSION:-stable}
+    image: hass:durty
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - '/bin/ha_check'
+      interval: 10m
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    environment:
+      - HA_TOKEN=${SERV_HA_TOKEN:?err}
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+      - TZ=Europe/Sofia
+      - PACKAGES=miniupnpc samba-client sshpass s6-ipcserver
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${SERV_CFG_ROOT:?err}/homeassistant:/config
+
+  transmission:
+    image: linuxserver/transmission
+    networks:
+      - int
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+      - USER=${SERV_TRANS_USER:?err}
+      - PASS=${SERV_TRANS_PASS:?err}
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/transmission:/config
+      - ${SERV_STORAGE_PATH:?err}/torrents:/downloads
+      - ${SERV_STORAGE_PATH:?err}/torrents:/watch
+
+  sonarr:
+    depends_on:
+      - prowlarr
+    build:
+      context: https://github.com/kodi1/serv.git#master:sonarr
+      dockerfile: Dockerfile
+    image: sonarr:durty
+    networks:
+      - int
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+      - HA_TOKEN=${SERV_HA_TOKEN:?err}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${SERV_CFG_ROOT:?err}/sonarr:/config
+      - ${SERV_STORAGE_PATH:?err}/torrents:/downloads
+      - ${SERV_STORAGE_PATH:?err}/tv:/tv
+
+  radarr:
+    depends_on:
+      - prowlarr
+    build:
+      context: https://github.com/kodi1/serv.git#master:radarr
+      dockerfile: Dockerfile
+    image: radarr:durty
+    networks:
+      - int
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+      - HA_TOKEN=${SERV_HA_TOKEN:?err}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${SERV_CFG_ROOT:?err}/radarr:/config
+      - ${SERV_STORAGE_PATH:?err}/torrents:/downloads
+      - ${SERV_STORAGE_PATH:?err}/movies:/movies
+
+  prowlarr:
+    image: linuxserver/prowlarr:develop
+    networks:
+      - int
+    container_name: prowlarr
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/prowlarr:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+
+  # apprise json://homeassistant:8123/api/events/bazarr_subs?-authorization=Bearer ABCDEF
+  # post_process '{{subtitles}}' --ref '{{episode}}' --ref-lang eng
+  bazarr:
+    depends_on:
+      - sonarr
+      - radarr
+    build:
+      context: https://github.com/kodi1/serv.git#master:bazarr
+      dockerfile: Dockerfile
+      args:
+        version: development
+    image: bazarr:durty
+    networks:
+      - int
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Sofia
+      - PUID=${SERV_PUID:?err}
+      - PGID=${SERV_PGID:?err}
+    volumes:
+      - ${SERV_CFG_ROOT:?err}/bazarr:/config
+      - ${SERV_STORAGE_PATH:?err}/movies:/movies
+      - ${SERV_STORAGE_PATH:?err}/tv:/tv
+      - ${SERV_STORAGE_PATH:?err}/movies:/opt/movies
+      - ${SERV_STORAGE_PATH:?err}/tv:/opt/tv

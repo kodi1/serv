@@ -1,0 +1,6 @@
+#!/bin/bash
+
+curl -f -X GET \
+-H "Content-Type: application/json" \
+-H 'Authorization: Bearer '$HA_TOKEN \
+http://localhost:8123/api/states/device_tracker.root

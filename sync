@@ -1,0 +1,33 @@
+#!/bin/bash
+
+_HA=${_HA:=hass}
+
+up () {
+    rsync --inplace -ravz --info=progress2 -e ssh\
+    --include="docker-compose.yml" \
+    --include=".env" \
+    --exclude="*" \
+    ./ ${_HA}:~/server/
+}
+
+down () {
+    rsync --inplace -ravz --info=progress2 -e ssh  \
+    --include="docker-compose.yml" \
+    --include=".env" \
+    --exclude="*" \
+    ${_HA}:~/server/ ./
+}
+
+case $1 in
+  pull)
+    down
+    ;;
+
+  push)
+    up
+    ;;
+
+  *)
+    echo "unknown"
+    ;;
+esac

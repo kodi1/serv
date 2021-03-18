@@ -1,0 +1,48 @@
+#! /usr/bin/python3
+
+import os, sys, argparse
+import json as j
+import paho.mqtt.publish as publish
+from subprocess import Popen, PIPE
+from datetime import datetime
+
+def get_video_data(fname):
+  process = Popen(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', '-i', fname], stdout=PIPE, stderr=PIPE)
+  stdout, stderr = process.communicate()
+
+  return stdout
+
+def get_edl_data(fname):
+  r = None
+  with open("%s.edl" % fname, 'r') as f:
+    r = [ l.replace('\n', '').replace('\t', ' ') for l in f ]
+
+  return ', '.join(r)
+
+if __name__== "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument('server', type=str, help="mqtt server")
+  parser.add_argument('user', type=str, help="mqtt user")
+  parser.add_argument('pasw', type=str, help="mqtt pass")
+  parser.add_argument('file', type=str, help="input file")
+
+  args = parser.parse_args()
+
+  video = {
+    'format': j.loads(get_video_data(args.file))['format'],
+    'edl': get_edl_data(os.path.splitext(args.file)[0]),
+    'date': datetime.now().strftime('%d.%m.%y/%H:%M:%S')
+  }
+
+  video['format']['filename'] = os.path.splitext(os.path.basename(video['format']['filename']))[0]
+
+  publish.single('hts',
+                  j.dumps(video),
+                  hostname=args.server,
+                  client_id='hts_to_ha',
+                  retain=True,
+                  auth={
+                    'username': args.user,
+                    'password': args.pasw
+                  }
+                )
